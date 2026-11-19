@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurelia Floral — Bảng Quản Trị Đơn Hàng Dành Cho Chủ Shop</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230B192C'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Georgia,serif' font-weight='bold' font-size='26' fill='%23C5A059'>AF</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f4f6fa',
+              100: '#e5eaf3',
+              500: '#1e3a8a',
+              700: '#1e293b',
+              800: '#152842',
+              900: '#0f172a',
+              dark: '#0B192C'
+            },
+            champagne: {
+              100: '#F5E6CA',
+              500: '#D4AF37',
+              600: '#C5A059',
+              700: '#AA7C11'
+            }
+          },
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 10px;
+        background: white !important;
+        color: black !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-new { background-color: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+    .status-deposit { background-color: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
+    .status-crafting { background-color: #EDE9FE; color: #5B21B6; border: 1px solid #DDD6FE; }
+    .status-shipping { background-color: #E0F2FE; color: #075985; border: 1px solid #BAE6FD; }
+    .status-completed { background-color: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
+    .status-cancelled { background-color: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+  <!-- ===================================================================== -->
+  <!-- MÀN HÌNH ĐĂNG NHẬP BẢO MẬT DÀNH CHO CHỦ SHOP (TOKEN-BASED AUTH)       -->
+  <!-- ===================================================================== -->
+  <div id="pin-login-overlay" class="fixed inset-0 bg-navy-dark/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl border border-champagne-600/40 space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-navy-dark text-champagne-600 flex items-center justify-center text-3xl mx-auto shadow-inner border border-champagne-600/30">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div>
+        <span class="text-xs font-bold uppercase tracking-widest text-champagne-700">Aurelia Floral — Trần Tài</span>
+        <h2 class="font-serif text-2xl font-bold text-navy-dark mt-1">Đăng Nhập Quản Trị</h2>
+        <p class="text-xs text-slate-500 mt-1.5">Xác thực mật khẩu 1 lần qua POST để nhận phiên làm việc bảo mật (6 giờ)</p>
+      </div>
+
+      <div id="session-verifying-box" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 font-semibold flex items-center justify-center gap-2">
+        <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+        <span>Đang kiểm tra phiên đăng nhập với máy chủ...</span>
+      </div>
+
+      <form id="admin-login-form" onsubmit="handleAdminLogin(event)" class="space-y-4">
+        <div>
+          <div class="relative">
+            <input type="password" id="admin-password-input" maxlength="64" autocomplete="current-password" autofocus required
+              placeholder="Nhập mật khẩu quản trị..."
+              class="w-full text-center text-base font-bold py-3.5 pl-4 pr-11 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none bg-slate-50">
+            <button type="button" onclick="toggleLoginPasswordVisibility()"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy-dark text-sm p-1" title="Hiện / Ẩn mật khẩu">
+              <i id="login-pwd-eye-icon" class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+          <div id="pin-error-msg" class="hidden text-xs text-red-700 font-semibold mt-2.5 bg-red-50 border border-red-200 rounded-xl p-3 text-left space-y-1">
+            <div class="flex items-start gap-1.5">
+              <i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0 text-red-600"></i>
+              <span id="pin-error-text">Mật khẩu không chính xác!</span>
+            </div>
+            <p id="pin-error-hint" class="hidden text-[11px] font-normal text-slate-600 pl-5 leading-relaxed"></p>
+          </div>
+        </div>
+        <button type="submit" id="admin-login-submit-btn"
+          class="w-full bg-champagne-600 hover:bg-champagne-700 text-navy-dark font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">
+          <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Bảng Quản Trị
+        </button>
+      </form>
+
+      <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <a href="banhoagia_da_sua.html" class="hover:text-navy-dark flex items-center gap-1">
+          <i class="fa-solid fa-arrow-left"></i> Về Website Bán Hàng
+        </a>
+        <button type="button" onclick="openApiConfigModal()" class="hover:text-navy-dark flex items-center gap-1">
+          <i class="fa-solid fa-link"></i> Cấu Hình URL API
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- TOP NAVBAR                                                            -->
+  <!-- ===================================================================== -->
+  <header class="bg-navy-dark text-white border-b border-champagne-600/30 sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-champagne-600 text-navy-dark flex items-center justify-center font-serif font-bold text-xl shrink-0">
+          AF
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-serif text-lg font-bold text-champagne-600 tracking-wide leading-none">AURELIA FLORAL</span>
+            <span class="bg-champagne-600/20 text-champagne-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-champagne-600/40">ADMIN SHOP</span>
+          </div>
+          <p class="text-[11px] text-slate-300 mt-0.5">Hệ Thống Quản Lý Đơn Hàng &amp; Điều Vận Toàn Quốc</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div id="header-sync-badge" onclick="refreshOrderList(true)" class="cursor-pointer" title="Bấm để đồng bộ đơn hàng từ Google Sheets">
+          <span class="bg-slate-800 text-slate-300 border border-slate-700 text-[11px] px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span>Google Sheets</span>
+          </span>
+        </div>
+
+        <button type="button" onclick="openNewOrderModal()"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm">
+          <i class="fa-solid fa-circle-plus"></i> <span class="hidden sm:inline">Tạo Đơn Tại Quầy</span><span class="sm:hidden">Tạo Đơn</span>
+        </button>
+        <button type="button" onclick="exportOrdersToExcel()"
+          class="bg-navy-800 hover:bg-white/10 text-slate-200 border border-white/20 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-file-excel text-emerald-400"></i> <span class="hidden md:inline">Xuất File Excel</span>
+        </button>
+        <button type="button" onclick="refreshOrderList(true)"
+          class="bg-navy-800 hover:bg-white/10 text-slate-200 border border-white/20 px-2.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors" title="Tải lại dữ liệu từ máy chủ">
+          <i class="fa-solid fa-arrows-rotate"></i> <span class="hidden lg:inline">Đồng Bộ</span>
+        </button>
+        <a href="banhoagia_da_sua.html" target="_blank"
+          class="bg-navy-800 hover:bg-champagne-600 hover:text-navy-dark text-champagne-600 border border-champagne-600/40 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-store"></i> <span class="hidden sm:inline">Xem Web Bán Hoa</span>
+        </a>
+        <button type="button" onclick="openSettingsModal()"
+          class="bg-navy-800 hover:bg-white/10 text-slate-300 border border-white/20 p-2 rounded-xl text-xs transition-colors" title="Thông tin bảo mật &amp; URL API">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+        <button type="button" onclick="logoutAdmin()"
+          class="bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-500/40 px-2.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors" title="Đăng xuất">
+          <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden md:inline">Đăng Xuất</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN DASHBOARD CONTENT                                                -->
+  <!-- ===================================================================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+    <!-- Banner Cảnh Báo Lỗi Kết Nối Máy Chủ -->
+    <div id="server-error-banner" class="hidden bg-red-50 border-2 border-red-300 rounded-2xl p-4 sm:p-5 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center text-lg shrink-0 mt-0.5">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="font-bold text-red-900 text-sm">Không thể kết nối tới máy chủ Google Sheets</h3>
+            <p id="server-error-detail" class="text-xs text-red-700 leading-relaxed">
+              Không nhận được phản hồi hợp lệ từ máy chủ. Hệ thống không hiển thị dữ liệu cũ để tránh nhầm lẫn.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="openSettingsModal()"
+            class="bg-white hover:bg-red-100 text-red-800 border border-red-300 font-bold px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors">
+            <i class="fa-solid fa-link"></i> Đổi URL API
+          </button>
+          <button type="button" onclick="refreshOrderList(true)"
+            class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+            <i class="fa-solid fa-rotate-right"></i> Thử Kết Nối Lại
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Metrics Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Doanh Thu Đơn</span>
+        <p id="kpi-revenue" class="text-lg sm:text-xl font-bold text-emerald-700 leading-tight">0 đ</p>
+        <span id="kpi-orders-count" class="text-[11px] text-slate-500 block">0 đơn thành công</span>
+      </div>
+
+      <div onclick="filterByStatusQuick('new')" class="bg-amber-50/70 hover:bg-amber-100/80 p-4 rounded-2xl border border-amber-200 shadow-sm space-y-1 cursor-pointer transition-colors">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800 block flex items-center justify-between">
+          <span>Đơn Mới</span>
+          <i class="fa-solid fa-bell text-amber-500"></i>
+        </span>
+        <p id="kpi-new" class="text-xl sm:text-2xl font-bold text-amber-900 leading-tight">0</p>
+        <span class="text-[11px] text-amber-700 block">Cần gọi xác nhận</span>
+      </div>
+
+      <div onclick="filterByStatusQuick('deposit_paid')" class="bg-indigo-50/70 hover:bg-indigo-100/80 p-4 rounded-2xl border border-indigo-200 shadow-sm space-y-1 cursor-pointer transition-colors">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-800 block flex items-center justify-between">
+          <span>Đã Cọc 30%</span>
+          <i class="fa-solid fa-money-check-dollar text-indigo-500"></i>
+        </span>
+        <p id="kpi-deposit" class="text-xl sm:text-2xl font-bold text-indigo-900 leading-tight">0</p>
+        <span class="text-[11px] text-indigo-700 block">Đã nhận cọc tiền</span>
+      </div>
+
+      <div onclick="filterByStatusQuick('crafting')" class="bg-purple-50/70 hover:bg-purple-100/80 p-4 rounded-2xl border border-purple-200 shadow-sm space-y-1 cursor-pointer transition-colors">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-800 block flex items-center justify-between">
+          <span>Đang Cắm Hoa</span>
+          <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i>
+        </span>
+        <p id="kpi-crafting" class="text-xl sm:text-2xl font-bold text-purple-900 leading-tight">0</p>
+        <span class="text-[11px] text-purple-700 block">Thợ đang làm &amp; in biển</span>
+      </div>
+
+      <div onclick="filterByStatusQuick('shipping')" class="bg-sky-50/70 hover:bg-sky-100/80 p-4 rounded-2xl border border-sky-200 shadow-sm space-y-1 cursor-pointer transition-colors">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-sky-800 block flex items-center justify-between">
+          <span>Đang Giao Hàng</span>
+          <i class="fa-solid fa-truck-fast text-sky-500"></i>
+        </span>
+        <p id="kpi-shipping" class="text-xl sm:text-2xl font-bold text-sky-900 leading-tight">0</p>
+        <span class="text-[11px] text-sky-700 block">Gửi xe / shipper / bưu cục</span>
+      </div>
+
+      <div onclick="filterByStatusQuick('completed')" class="bg-emerald-50/70 hover:bg-emerald-100/80 p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-1 cursor-pointer transition-colors">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block flex items-center justify-between">
+          <span>Hoàn Thành</span>
+          <i class="fa-solid fa-circle-check text-emerald-500"></i>
+        </span>
+        <p id="kpi-completed" class="text-xl sm:text-2xl font-bold text-emerald-900 leading-tight">0</p>
+        <span class="text-[11px] text-emerald-700 block">Khách đã nhận đủ</span>
+      </div>
+    </div>
+
+    <!-- Filter & Search Controls -->
+    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div class="relative md:col-span-5">
+          <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 text-sm"></i>
+          <input type="text" id="admin-search-input" oninput="applyAdminFilters()"
+            placeholder="Tìm theo Mã đơn, Tên khách, SĐT, Địa chỉ, Lời chúc..."
+            class="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none text-xs sm:text-sm bg-slate-50 focus:bg-white">
+          <button type="button" onclick="clearAdminSearch()" id="admin-clear-search-btn"
+            class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+        </div>
+
+        <div class="md:col-span-3">
+          <select id="admin-status-filter" onchange="applyAdminFilters()"
+            class="w-full py-2.5 px-3 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none text-xs sm:text-sm bg-slate-50 font-medium">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="new">🟡 Đơn Mới (Chờ gọi)</option>
+            <option value="deposit_paid">🔵 Đã Cọc 30%</option>
+            <option value="crafting">🟣 Đang Cắm Hoa / In Biển</option>
+            <option value="shipping">🚚 Đang Giao Xe / Bưu Cục</option>
+            <option value="completed">🟢 Đã Hoàn Thành</option>
+            <option value="cancelled">🔴 Đã Hủy Đơn</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2">
+          <select id="admin-tag-filter" onchange="applyAdminFilters()"
+            class="w-full py-2.5 px-3 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none text-xs sm:text-sm bg-slate-50 font-medium">
+            <option value="all">Tất cả đơn</option>
+            <option value="wholesale">Chỉ đơn Sỉ (≥ 2tr)</option>
+            <option value="vat">Chỉ đơn Cần VAT</option>
+            <option value="banner">Chỉ đơn Có Lời Chúc</option>
+            <option value="callback">Yêu cầu gọi lại / Tư vấn</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2">
+          <select id="admin-date-filter" onchange="applyAdminFilters()"
+            class="w-full py-2.5 px-3 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none text-xs sm:text-sm bg-slate-50 font-medium">
+            <option value="all">Toàn bộ thời gian</option>
+            <option value="today">Hôm nay</option>
+            <option value="7days">7 ngày gần nhất</option>
+            <option value="this_month">Tháng này</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+        <span id="admin-result-count">Đang hiển thị 0 đơn hàng</span>
+        <button type="button" onclick="resetAdminFilters()" class="text-champagne-700 hover:underline font-semibold">
+          <i class="fa-solid fa-rotate-left mr-1"></i> Đặt lại bộ lọc
+        </button>
+      </div>
+    </div>
+
+    <!-- Orders Table Container -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200 text-[11px] tracking-wider">
+              <th class="py-3.5 px-4">Mã Đơn / Thời Gian</th>
+              <th class="py-3.5 px-4">Khách Hàng &amp; Lịch Giao</th>
+              <th class="py-3.5 px-4">Sản Phẩm &amp; Lời Chúc</th>
+              <th class="py-3.5 px-4 text-right">Tổng Tiền / Thanh Toán</th>
+              <th class="py-3.5 px-4 text-center">Trạng Thái</th>
+              <th class="py-3.5 px-4 text-center">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body" class="divide-y divide-slate-100">
+            <!-- Dynamic rows rendered safely via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty state -->
+      <div id="orders-empty-state" class="hidden text-center py-16 px-4 space-y-3">
+        <div id="empty-state-icon" class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mx-auto">
+          <i class="fa-solid fa-inbox"></i>
+        </div>
+        <h4 id="empty-state-title" class="font-bold text-navy-dark text-base">Chưa có đơn hàng nào khớp với điều kiện lọc</h4>
+        <p id="empty-state-desc" class="text-xs text-slate-500 max-w-md mx-auto">Bạn có thể bấm "Tạo Đơn Tại Quầy" để thêm đơn trực tiếp hoặc bấm "Đồng Bộ" để kiểm tra đơn mới từ Google Sheets.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: CHI TIẾT & CẬP NHẬT ĐƠN HÀNG                                   -->
+  <!-- ===================================================================== -->
+  <div id="order-detail-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-5" onclick="closeOrderDetailModal()">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col" onclick="event.stopPropagation()">
+      <div class="bg-navy-dark text-white px-6 py-4 flex items-center justify-between border-b border-champagne-600/30">
+        <div class="flex items-center gap-2.5">
+          <span id="detail-code-badge" class="bg-champagne-600 text-navy-dark font-mono font-bold px-2.5 py-0.5 rounded text-xs">#DH-000</span>
+          <h3 class="font-serif text-lg font-bold">Chi Tiết Đơn Hàng</h3>
+        </div>
+        <button type="button" onclick="closeOrderDetailModal()" class="text-slate-300 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <div id="detail-modal-body" class="p-6 overflow-y-auto space-y-5 text-xs flex-1">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <button type="button" id="detail-cancel-btn" onclick="openCancelModalFromDetail()"
+          class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 font-bold px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5">
+          <i class="fa-solid fa-ban"></i> Hủy Đơn &amp; Hoàn Cọc
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="detail-print-btn" onclick="printOrderLabelCurrent()"
+            class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-print"></i> In Phiếu Dán Xe
+          </button>
+          <button type="button" id="detail-zalo-btn" onclick="openZaloForCurrentOrder()"
+            class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-comment-dots"></i> Nhắn Khách Qua Zalo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: HỦY ĐƠN & TÍNH HOÀN TIỀN CỌC THEO CHÍNH SÁCH                   -->
+  <!-- ===================================================================== -->
+  <div id="cancel-order-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4" onclick="closeCancelModal()">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-red-200 space-y-4" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-3 border-b border-red-100 pb-3">
+        <div class="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center text-lg font-bold shrink-0">
+          <i class="fa-solid fa-ban"></i>
+        </div>
+        <div>
+          <h3 class="font-serif text-lg font-bold text-red-900 leading-tight">Hủy Đơn &amp; Tính Hoàn Cọc</h3>
+          <p class="text-[11px] text-slate-500">Mã đơn: <strong id="cancel-modal-code" class="text-navy-dark">#DH-000</strong></p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Giai đoạn hủy đơn (Theo chính sách shop):</label>
+          <select id="cancel-stage-select" onchange="calculateRefundAmount()"
+            class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 focus:outline-none bg-slate-50 font-medium">
+            <option value="before_packing">1. Chưa đóng gói: Hoàn 100% tiền cọc</option>
+            <option value="custom_crafted">2. Đã cắm phối riêng/In biển: Giữ 30% cọc (Hoàn 70%)</option>
+            <option value="shipping_sent">3. Hàng đã giao đi: Khách chịu cước 2 chiều</option>
+            <option value="shop_cancelled">4. Shop chủ động hủy: Hoàn 100% cọc + Xin lỗi</option>
+          </select>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+          <div class="flex justify-between text-slate-600">
+            <span>Tổng giá trị đơn:</span>
+            <strong id="cancel-calc-total" class="text-navy-dark">0 đ</strong>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>Tiền cọc đã ghi nhận (30%):</span>
+            <strong id="cancel-calc-deposit" class="text-indigo-700">0 đ</strong>
+          </div>
+          <div class="flex justify-between text-red-700 font-bold border-t border-slate-200 pt-1.5 text-sm">
+            <span>Số tiền hoàn dự kiến:</span>
+            <span id="cancel-calc-refund">0 đ</span>
+          </div>
+          <p id="cancel-calc-note" class="text-[10px] text-slate-500 italic mt-1"></p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Trạng thái xử lý hoàn tiền cọc:</label>
+          <select id="cancel-refund-status-select"
+            class="w-full p-2.5 rounded-xl border border-slate-300 focus:border-red-500 focus:outline-none bg-amber-50/60 font-semibold text-navy-dark">
+            <option value="Chờ kế toán hoàn tiền">⏳ Chờ kế toán hoàn tiền (Chưa chuyển khoản)</option>
+            <option value="Đã chuyển khoản hoàn tiền">✅ Đã chuyển khoản hoàn tiền cho khách</option>
+            <option value="Không phát sinh hoàn cọc (Đơn COD)">ℹ️ Không phát sinh hoàn cọc (Đơn COD / Chưa cọc)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Lý do hủy đơn:</label>
+          <input type="text" id="cancel-reason-input" placeholder="Ví dụ: Khách đổi ý, trùng người tặng..."
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-red-500 focus:outline-none">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeCancelModal()"
+          class="w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 text-xs">
+          Đóng
+        </button>
+        <button type="button" id="cancel-confirm-submit-btn" onclick="confirmCancelOrderAction()"
+          class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-check"></i> Xác Nhận Hủy Đơn
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: TẠO ĐƠN HÀNG MỚI THỦ CÔNG (TẠI QUẦY / ĐIỆN THOẠI)              -->
+  <!-- ===================================================================== -->
+  <div id="new-order-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-5" onclick="closeNewOrderModal()">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col" onclick="event.stopPropagation()">
+      <div class="bg-navy-dark text-white px-6 py-4 flex items-center justify-between border-b border-champagne-600/30">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-cash-register text-champagne-600 text-lg"></i>
+          <h3 class="font-serif text-lg font-bold">Tạo Đơn Hàng Mới Tại Quầy / Điện Thoại</h3>
+        </div>
+        <button type="button" onclick="closeNewOrderModal()" class="text-slate-300 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <form id="new-order-form" onsubmit="handleCreateManualOrder(event)" class="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Tên khách hàng *</label>
+            <input type="text" id="manual-cust-name" required placeholder="Ví dụ: Anh Hoàng - Cty Nam Hải"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Số điện thoại / Zalo *</label>
+            <input type="tel" id="manual-cust-phone" required placeholder="0912345678"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Địa chỉ nhận hàng (hoặc Khách lấy tại quầy) *</label>
+          <input type="text" id="manual-cust-address" required placeholder="Ví dụ: Lấy trực tiếp CS1 hoặc gửi xe khách về TP. Nam Định..."
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Ngày giao dự kiến:</label>
+            <input type="date" id="manual-delivery-date"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none bg-white">
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Giờ giao dự kiến:</label>
+            <input type="text" id="manual-delivery-time" placeholder="Ví dụ: 09:30 hoặc Trước 15:00"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Phân loại khách:</label>
+            <select id="manual-cust-type" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+              <option value="Mua lẻ dùng / tặng">Khách Mua Lẻ</option>
+              <option value="Nhập sỉ về bán">Khách Nhập Sỉ (≥ 2tr)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Hình thức thanh toán:</label>
+            <select id="manual-payment-method" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+              <option value="COD (Kiểm tra hàng rồi thanh toán)">COD (Giao nhận tiền)</option>
+              <option value="Chuyển khoản đặt cọc 30%">Chuyển khoản cọc 30%</option>
+              <option value="Chuyển khoản thanh toán 100%">Đã chuyển đủ 100%</option>
+              <option value="Tiền mặt tại quầy">Tiền mặt tại quầy</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Tuyến giao:</label>
+            <select id="manual-shipping-type" onchange="handleManualShippingTypeChange()" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+              <option value="local">Nội tỉnh Thái Bình (từ 20k)</option>
+              <option value="bus">Gửi xe tuyến tỉnh (từ 30k)</option>
+              <option value="north">Bưu cục Miền Bắc (từ 30k)</option>
+              <option value="far">Bưu cục Miền Trung &amp; Nam (từ 35k)</option>
+              <option value="pickup">Khách lấy tại quầy (0đ)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Mẫu hoa / Sản phẩm đặt mua *</label>
+          <input type="text" id="manual-items-summary" required placeholder="Ví dụ: 1x Bình Lan Hồ Điệp Vàng Cam (#HL-10), 2x Giỏ Mây (#HL-12)"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Tiền hàng (đ) *</label>
+            <input type="number" id="manual-subtotal" required min="0" step="10000" placeholder="1450000"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Giảm giá / Chiết khấu (đ):</label>
+            <input type="number" id="manual-discount" min="0" step="10000" value="0"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-navy-dark uppercase mb-1">Phí vận chuyển (đ):</label>
+            <input type="number" id="manual-shipping-fee" min="0" step="5000" value="20000"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Lời chúc / Nội dung biển chúc mừng (nếu có):</label>
+          <input type="text" id="manual-banner-note" placeholder="Ví dụ: CÔNG TY ABC KÍNH TẶNG - Chúc Mừng Khai Trương Hồng Phát"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-bold text-navy-dark uppercase mb-1">Ghi chú điều vận / Nhà xe / Thợ cắm:</label>
+          <textarea id="manual-internal-note" rows="2" placeholder="Ví dụ: Gửi xe Hoàng Long bến Chợ Bo, tài xế Tuấn 0912..."
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none resize-none"></textarea>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeNewOrderModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 font-bold hover:bg-slate-100">
+            Hủy Bỏ
+          </button>
+          <button type="submit" id="manual-order-submit-btn" class="px-5 py-2.5 rounded-xl bg-champagne-600 hover:bg-champagne-700 text-navy-dark font-bold flex items-center gap-2">
+            <i class="fa-solid fa-check"></i> Lưu Lên Google Sheets
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: THÔNG TIN BẢO MẬT & CẤU HÌNH URL GOOGLE APPS SCRIPT            -->
+  <!-- ===================================================================== -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-5" onclick="closeSettingsModal()">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col" onclick="event.stopPropagation()">
+      <div class="bg-navy-dark text-white px-6 py-4 flex items-center justify-between border-b border-champagne-600/30">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-shield-halved text-champagne-600 text-lg"></i>
+          <h3 class="font-serif text-lg font-bold">Cấu Hình API &amp; Thông Tin Bảo Mật</h3>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" class="text-slate-300 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-5 text-xs flex-1">
+        <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-2.5">
+          <h4 class="font-serif text-base font-bold text-navy-dark flex items-center gap-2">
+            <i class="fa-solid fa-link text-amber-700"></i> URL Triển Khai Google Apps Script (Web App)
+          </h4>
+          <p class="text-slate-600 leading-relaxed">
+            Mỗi khi bạn tạo triển khai mới (<strong>New deployment</strong>) trên Google Apps Script, hãy dán đường dẫn <code class="bg-white px-1 py-0.5 rounded border font-mono">https://script.google.com/macros/s/.../exec</code> vào đây và bấm <strong>Lưu &amp; Kiểm Tra</strong>.
+          </p>
+          <input type="url" id="settings-script-url-input" placeholder="https://script.google.com/macros/s/.../exec"
+            class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none font-mono text-[11px] bg-white">
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <button type="button" onclick="resetScriptUrlToDefault()" class="text-slate-500 hover:text-navy-dark underline text-[11px]">
+              Khôi phục URL mặc định
+            </button>
+            <button type="button" id="save-script-url-btn" onclick="saveCustomScriptUrl()"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors">
+              <i class="fa-solid fa-floppy-disk"></i> Lưu &amp; Kiểm Tra Kết Nối
+            </button>
+          </div>
+          <p id="settings-url-status" class="hidden text-[11px] font-semibold pt-1"></p>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+          <h4 class="font-serif text-base font-bold text-navy-dark flex items-center gap-2">
+            <i class="fa-solid fa-key text-champagne-700"></i> Cơ Chế Phiên Đăng Nhập Token
+          </h4>
+          <p class="text-slate-600 leading-relaxed">
+            Mật khẩu quản trị (<code class="bg-slate-200 px-1.5 py-0.5 rounded font-mono text-navy-dark">ADMIN_PIN</code>) chỉ được kiểm tra 1 lần duy nhất tại bước đăng nhập qua <strong>POST</strong> (<code class="bg-slate-200 px-1.5 py-0.5 rounded font-mono text-navy-dark">adminLogin</code>). Trình duyệt không lưu mật khẩu mà chỉ giữ <strong>Session Token</strong> tạm thời có hiệu lực tối đa <strong>6 giờ</strong>.
+          </p>
+          <p class="text-slate-600 leading-relaxed">
+            Để đặt hoặc đổi mật khẩu quản trị: mở dự án <strong>Google Apps Script</strong> &rarr; chạy hàm <code class="bg-slate-200 px-1.5 py-0.5 rounded font-mono text-navy-dark">setAdminPin()</code> (mật khẩu tối thiểu 8 ký tự).
+          </p>
+        </div>
+
+        <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-1.5">
+          <h4 class="font-bold text-emerald-900 flex items-center gap-2">
+            <i class="fa-solid fa-building-columns text-emerald-700"></i> Tài Khoản Nhận Chuyển Khoản Cửa Hàng
+          </h4>
+          <p class="text-emerald-800">Ngân hàng: <strong>MBBank</strong> — STK: <strong>0842722928</strong> — Chủ TK: <strong>TRAN DUC TAI</strong></p>
+          <p class="text-[11px] text-emerald-700">Trạng thái thanh toán đơn hàng được kiểm tra trực tiếp từ cột Trạng Thái trên Google Sheets.</p>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+        <button type="button" onclick="logoutAdmin()"
+          class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center gap-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất &amp; Thu Hồi Token
+        </button>
+        <button type="button" onclick="closeSettingsModal()"
+          class="bg-navy-dark hover:bg-champagne-600 hover:text-navy-dark text-white font-bold px-6 py-2.5 rounded-xl text-xs transition-colors">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VÙNG IN PHIẾU GỬI HÀNG / NHÃN THÙNG CARTON (@media print)             -->
+  <!-- ===================================================================== -->
+  <div id="print-area" class="hidden"></div>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT XỬ LÝ DỮ LIỆU & QUẢN TRỊ (100% POST + SESSION TOKEN AUTH)  -->
+  <!-- ===================================================================== -->
+  <script>
+    const DEFAULT_ADMIN_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpcVKRXEqECikOO9ajd3mDi4SQAHdEWa_6g14qy9nmYsNR7QvL08i4827g-K6UMcD0XA/exec';
+    const ADMIN_URL_STORAGE_KEY = 'aurelia_admin_script_url_v1';
+    const ADMIN_SESSION_KEY = 'aurelia_admin_session_v4';
+
+    let currentOrders = [];
+    let selectedOrderForAction = null;
+    let lastServerError = '';
+
+    function getAdminScriptUrl() {
+      try {
+        const saved = String(localStorage.getItem(ADMIN_URL_STORAGE_KEY) || '').trim();
+        if (saved && saved.startsWith('https://')) return saved;
+      } catch (e) {}
+      return DEFAULT_ADMIN_SCRIPT_URL;
+    }
+
+    // ---------------------------------------------------------------------
+    // 0. TIỆN ÍCH GỌI API GOOGLE APPS SCRIPT (CHỈ DÙNG POST, KHÔNG BAO GIỜ GET)
+    // ---------------------------------------------------------------------
+    async function postAdminScript(payload, timeoutMs = 18000, overrideUrl = '') {
+      const targetUrl = overrideUrl || getAdminScriptUrl();
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+      let res;
+      try {
+        res = await fetch(targetUrl, {
+          method: 'POST',
+          mode: 'cors',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal
+        });
+      } catch (networkErr) {
+        clearTimeout(tid);
+        if (networkErr && networkErr.name === 'AbortError') {
+          throw new Error('Quá thời gian chờ phản hồi từ máy chủ Google Apps Script (timeout).');
+        }
+        throw new Error('Không thể kết nối mạng tới máy chủ Google Apps Script. Vui lòng kiểm tra Internet hoặc URL Web App.');
+      }
+      clearTimeout(tid);
+
+      if (!res.ok) {
+        throw new Error(`Máy chủ trả về mã lỗi HTTP ${res.status}.`);
+      }
+
+      const rawText = await res.text();
+      const trimmed = String(rawText || '').trim();
+      if (!trimmed) {
+        throw new Error('Máy chủ trả về phản hồi rỗng.');
+      }
+      if (trimmed.startsWith('<')) {
+        throw new Error('Máy chủ trả về trang HTML thay vì dữ liệu JSON (kiểm tra quyền triển khai Web App: "Anyone / Bất kỳ ai").');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (parseErr) {
+        throw new Error('Dữ liệu phản hồi từ máy chủ không đúng định dạng JSON.');
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 1. QUẢN LÝ PHIÊN & XÁC THỰC TOKEN QUA MÁY CHỦ
+    // ---------------------------------------------------------------------
+    function clearLocalSession() {
+      try {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      } catch (e) {}
+    }
+
+    function getAdminSession() {
+      try {
+        const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const token = String(parsed && parsed.sessionToken || '').trim();
+        const expiresAt = Number(parsed && parsed.expiresAt || 0);
+        if (!token) {
+          clearLocalSession();
+          return null;
+        }
+        if (expiresAt > 0 && Date.now() >= expiresAt) {
+          clearLocalSession();
+          return null;
+        }
+        return {
+          sessionToken: token,
+          expiresAt: expiresAt,
+          loginAt: Number(parsed && parsed.loginAt || 0)
+        };
+      } catch (e) {
+        clearLocalSession();
+        return null;
+      }
+    }
+
+    function saveAdminSession(sessionToken, expiresAt) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+        sessionToken: String(sessionToken),
+        expiresAt: Number(expiresAt || 0),
+        loginAt: Date.now()
+      }));
+    }
+
+    function isSessionInvalidResponse(data) {
+      if (!data) return false;
+      const code = String(data.code || '').toUpperCase();
+      if (code === 'SESSION_EXPIRED' || code === 'UNAUTHORIZED') return true;
+      const msg = String(data.message || '').toLowerCase();
+      return (
+        msg.includes('phiên đăng nhập') ||
+        msg.includes('token') ||
+        msg.includes('hết hạn') ||
+        msg.includes('đăng nhập lại')
+      );
+    }
+
+    function handleExpiredOrInvalidSession(customMessage) {
+      clearLocalSession();
+      currentOrders = [];
+      applyAdminFilters();
+      const overlay = document.getElementById('pin-login-overlay');
+      const verifyingBox = document.getElementById('session-verifying-box');
+      const loginForm = document.getElementById('admin-login-form');
+      if (verifyingBox) verifyingBox.classList.add('hidden');
+      if (loginForm) loginForm.classList.remove('hidden');
+      if (overlay) overlay.classList.remove('hidden');
+      showLoginError(
+        customMessage || 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.'
+      );
+    }
+
+    async function checkAuthStatus() {
+      const session = getAdminSession();
+      const overlay = document.getElementById('pin-login-overlay');
+      const verifyingBox = document.getElementById('session-verifying-box');
+      const loginForm = document.getElementById('admin-login-form');
+
+      if (!session || !session.sessionToken) {
+        if (verifyingBox) verifyingBox.classList.add('hidden');
+        if (loginForm) loginForm.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        return;
+      }
+
+      if (overlay) overlay.classList.remove('hidden');
+      if (verifyingBox) verifyingBox.classList.remove('hidden');
+      if (loginForm) loginForm.classList.add('hidden');
+
+      try {
+        const verifyRes = await postAdminScript({
+          action: 'validateSession',
+          sessionToken: session.sessionToken
+        }, 15000);
+
+        if (verifyRes && verifyRes.status === 'success' && verifyRes.ok === true) {
+          if (verifyRes.expiresAt) {
+            saveAdminSession(session.sessionToken, verifyRes.expiresAt);
+          }
+          if (verifyingBox) verifyingBox.classList.add('hidden');
+          if (loginForm) loginForm.classList.remove('hidden');
+          if (overlay) overlay.classList.add('hidden');
+          await initDashboard();
+        } else {
+          handleExpiredOrInvalidSession(
+            (verifyRes && verifyRes.message) || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+          );
+        }
+      } catch (err) {
+        if (verifyingBox) verifyingBox.classList.add('hidden');
+        if (loginForm) loginForm.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        showLoginError(
+          'Không thể xác minh phiên đăng nhập với máy chủ.',
+          err && err.message ? err.message : 'Vui lòng kiểm tra kết nối mạng và đăng nhập lại.'
+        );
+      }
+    }
+
+    function toggleLoginPasswordVisibility() {
+      const input = document.getElementById('admin-password-input');
+      const icon = document.getElementById('login-pwd-eye-icon');
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        }
+      } else {
+        input.type = 'password';
+        if (icon) {
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      }
+    }
+
+    function showLoginError(message, hint = '') {
+      const err = document.getElementById('pin-error-msg');
+      const textEl = document.getElementById('pin-error-text');
+      const hintEl = document.getElementById('pin-error-hint');
+      if (!err || !textEl) return;
+      textEl.textContent = message;
+      if (hintEl) {
+        if (hint) {
+          hintEl.textContent = hint;
+          hintEl.classList.remove('hidden');
+        } else {
+          hintEl.textContent = '';
+          hintEl.classList.add('hidden');
+        }
+      }
+      err.classList.remove('hidden');
+    }
+
+    async function handleAdminLogin(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('admin-password-input');
+      const errBox = document.getElementById('pin-error-msg');
+      const rawPassword = (input?.value || '').trim();
+      if (input) input.value = '';
+
+      if (!rawPassword) {
+        showLoginError('Vui lòng nhập mật khẩu quản trị.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('admin-login-submit-btn');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xác thực mật khẩu...';
+      }
+      if (errBox) errBox.classList.add('hidden');
+
+      try {
+        const loginRes = await postAdminScript({
+          action: 'adminLogin',
+          pin: rawPassword
+        }, 20000);
+
+        if (loginRes && loginRes.status === 'success' && loginRes.ok === true && loginRes.sessionToken) {
+          saveAdminSession(loginRes.sessionToken, loginRes.expiresAt);
+          if (errBox) errBox.classList.add('hidden');
+          document.getElementById('pin-login-overlay').classList.add('hidden');
+          await initDashboard();
+        } else {
+          const serverMsg = (loginRes && loginRes.message) ? String(loginRes.message) : 'Mật khẩu quản trị không chính xác!';
+          showLoginError(serverMsg);
+          if (input) input.focus();
+        }
+      } catch (err) {
+        showLoginError(
+          'Không thể xác thực với máy chủ!',
+          err && err.message ? err.message : 'Vui lòng kiểm tra kết nối mạng và thử lại.'
+        );
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    async function logoutAdmin(reasonMessage = '') {
+      const session = getAdminSession();
+      clearLocalSession();
+      currentOrders = [];
+      applyAdminFilters();
+
+      const overlay = document.getElementById('pin-login-overlay');
+      const verifyingBox = document.getElementById('session-verifying-box');
+      const loginForm = document.getElementById('admin-login-form');
+      const input = document.getElementById('admin-password-input');
+      if (input) input.value = '';
+      if (verifyingBox) verifyingBox.classList.add('hidden');
+      if (loginForm) loginForm.classList.remove('hidden');
+      if (overlay) overlay.classList.remove('hidden');
+
+      if (reasonMessage) {
+        showLoginError(reasonMessage);
+      } else {
+        const errBox = document.getElementById('pin-error-msg');
+        if (errBox) errBox.classList.add('hidden');
+      }
+
+      if (session && session.sessionToken) {
+        try {
+          await postAdminScript({
+            action: 'adminLogout',
+            sessionToken: session.sessionToken
+          }, 8000);
+        } catch (e) {}
+      }
+    }
+
+    function openApiConfigModal() {
+      openSettingsModal();
+    }
+
+    function openSettingsModal() {
+      const urlInput = document.getElementById('settings-script-url-input');
+      const statusEl = document.getElementById('settings-url-status');
+      if (urlInput) urlInput.value = getAdminScriptUrl();
+      if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.classList.add('hidden');
+      }
+      document.getElementById('settings-modal').classList.remove('hidden');
+      document.getElementById('settings-modal').classList.add('flex');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+      document.getElementById('settings-modal').classList.remove('flex');
+    }
+
+    function resetScriptUrlToDefault() {
+      try { localStorage.removeItem(ADMIN_URL_STORAGE_KEY); } catch (e) {}
+      const urlInput = document.getElementById('settings-script-url-input');
+      const statusEl = document.getElementById('settings-url-status');
+      if (urlInput) urlInput.value = DEFAULT_ADMIN_SCRIPT_URL;
+      if (statusEl) {
+        statusEl.textContent = 'Đã khôi phục về URL mặc định.';
+        statusEl.className = 'text-[11px] font-semibold pt-1 text-slate-600';
+        statusEl.classList.remove('hidden');
+      }
+    }
+
+    async function saveCustomScriptUrl() {
+      const urlInput = document.getElementById('settings-script-url-input');
+      const statusEl = document.getElementById('settings-url-status');
+      const btn = document.getElementById('save-script-url-btn');
+      const rawUrl = (urlInput?.value || '').trim();
+
+      if (!rawUrl || !rawUrl.startsWith('https://script.google.com/macros/s/')) {
+        if (statusEl) {
+          statusEl.textContent = 'URL phải bắt đầu bằng https://script.google.com/macros/s/... và kết thúc bằng /exec';
+          statusEl.className = 'text-[11px] font-semibold pt-1 text-red-600';
+          statusEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+      }
+
+      try {
+        // Kiểm tra kết nối bằng POST validateSession (chấp nhận cả SESSION_EXPIRED vì chứng tỏ endpoint JSON hoạt động)
+        const probe = await postAdminScript({ action: 'validateSession', sessionToken: '' }, 12000, rawUrl);
+        if (probe && (probe.status === 'success' || probe.status === 'error')) {
+          localStorage.setItem(ADMIN_URL_STORAGE_KEY, rawUrl);
+          if (statusEl) {
+            statusEl.textContent = '✅ Kết nối máy chủ thành công! Đã lưu URL mới.';
+            statusEl.className = 'text-[11px] font-semibold pt-1 text-emerald-700';
+            statusEl.classList.remove('hidden');
+          }
+          clearServerErrorBanner();
+        } else {
+          throw new Error('Phản hồi không hợp lệ từ URL này.');
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent = '❌ Không kết nối được: ' + (err && err.message ? err.message : 'Lỗi mạng');
+          statusEl.className = 'text-[11px] font-semibold pt-1 text-red-600';
+          statusEl.classList.remove('hidden');
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 2. ĐỒNG BỘ DỮ LIỆU TỪ GOOGLE SHEETS BẰNG SESSION TOKEN
+    // ---------------------------------------------------------------------
+    function showServerErrorBanner(errorMessage) {
+      lastServerError = errorMessage || 'Không thể kết nối tới máy chủ.';
+      const banner = document.getElementById('server-error-banner');
+      const detail = document.getElementById('server-error-detail');
+      if (detail) {
+        detail.textContent = `${lastServerError} Hệ thống không tự động dùng dữ liệu cũ trong trình duyệt để đảm bảo độ chính xác.`;
+      }
+      if (banner) {
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function clearServerErrorBanner() {
+      lastServerError = '';
+      const banner = document.getElementById('server-error-banner');
+      if (banner) {
+        banner.classList.add('hidden');
+      }
+    }
+
+    function updateSyncBadge(state, count = 0) {
+      const badge = document.getElementById('header-sync-badge');
+      if (!badge) return;
+      if (state === 'syncing') {
+        badge.innerHTML = `
+          <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <span>Đang đồng bộ...</span>
+          </span>`;
+      } else if (state === 'synced') {
+        badge.innerHTML = `
+          <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Sheets (${count} đơn)</span>
+          </span>`;
+      } else {
+        badge.innerHTML = `
+          <span class="bg-red-500/25 text-red-200 border border-red-400/50 text-[11px] px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+            <span>Lỗi kết nối máy chủ</span>
+          </span>`;
+      }
+    }
+
+    function parseVndNumber(val) {
+      if (typeof val === 'number' && Number.isFinite(val)) return val;
+      const digits = String(val || '').replace(/[^\d-]/g, '');
+      const parsed = Number(digits);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatVnd(num) {
+      return parseVndNumber(num).toLocaleString('vi-VN') + ' đ';
+    }
+
+    function normalizeSheetStatus(rawStatus) {
+      const s = String(rawStatus || '').trim().toLowerCase();
+      if (!s) return 'new';
+      if (['new', 'deposit_paid', 'crafting', 'shipping', 'completed', 'cancelled'].includes(s)) {
+        return s;
+      }
+      if (s.includes('hủy') || s.includes('huy')) return 'cancelled';
+      if (s.includes('hoàn thành') || s.includes('hoan thanh') || s.includes('đã giao') || s.includes('da giao')) return 'completed';
+      if (s.includes('đang giao') || s.includes('dang giao') || s.includes('gửi xe') || s.includes('bưu cục')) return 'shipping';
+      if (s.includes('cắm') || s.includes('cam') || s.includes('đóng gói') || s.includes('in biển')) return 'crafting';
+      if (s.includes('chưa') || s.includes('chờ')) return 'new';
+      if (s.includes('cọc') || s.includes('coc') || s.includes('đã thanh toán') || s.includes('da thanh toan')) return 'deposit_paid';
+      return 'new';
+    }
+
+    function parseOrderSavedAt(order) {
+      if (typeof order.savedAt === 'number' && order.savedAt > 0) return order.savedAt;
+      const t = String(order.orderTime || '').trim();
+      if (!t) return 0;
+
+      const isoMatch = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s]+(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/);
+      if (isoMatch) {
+        if (isoMatch[7]) {
+          const parsedIso = Date.parse(t);
+          if (!Number.isNaN(parsedIso)) return parsedIso;
+        }
+        const dt = new Date(
+          Number(isoMatch[1]),
+          Number(isoMatch[2]) - 1,
+          Number(isoMatch[3]),
+          Number(isoMatch[4] || 0),
+          Number(isoMatch[5] || 0),
+          Number(isoMatch[6] || 0)
+        );
+        if (!Number.isNaN(dt.getTime())) return dt.getTime();
+      }
+
+      const vnMatch = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+      if (vnMatch) {
+        const dt = new Date(
+          Number(vnMatch[3]),
+          Number(vnMatch[2]) - 1,
+          Number(vnMatch[1]),
+          Number(vnMatch[4] || 0),
+          Number(vnMatch[5] || 0),
+          Number(vnMatch[6] || 0)
+        );
+        if (!Number.isNaN(dt.getTime())) return dt.getTime();
+      }
+
+      const fallbackParsed = Date.parse(t);
+      return Number.isNaN(fallbackParsed) ? 0 : fallbackParsed;
+    }
+
+    function formatIsoDateToVn(dateStr) {
+      const s = String(dateStr || '').trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return s;
+    }
+
+    function extractDeliveryInfo(order) {
+      const rawDateField = String(order.deliveryDate || order.expectedDeliveryDate || '').trim();
+      const rawTimeField = String(order.deliveryTime || '').trim();
+
+      let datePart = '';
+      let timePart = rawTimeField;
+
+      if (rawDateField) {
+        const combinedMatch = rawDateField.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+        if (combinedMatch) {
+          datePart = formatIsoDateToVn(combinedMatch[1].trim());
+          if (!timePart) timePart = combinedMatch[2].trim();
+        } else {
+          datePart = formatIsoDateToVn(rawDateField);
+        }
+      }
+
+      return {
+        dateText: datePart || 'Chưa hẹn ngày',
+        timeText: timePart || 'Chưa hẹn giờ',
+        hasDate: Boolean(datePart),
+        hasTime: Boolean(timePart)
+      };
+    }
+
+    function extractGreetingInfo(order) {
+      const raw = String(order.bannerNote || order.greetingCard || '').trim();
+      if (!raw || raw.toLowerCase() === 'không') {
+        return {
+          text: 'Không có lời chúc',
+          hasGreeting: false
+        };
+      }
+      return {
+        text: raw,
+        hasGreeting: true
+      };
+    }
+
+    function normalizeOrderRecord(o) {
+      let itemsList = o.itemsList;
+      if (typeof itemsList === 'string' && itemsList.trim().startsWith('[')) {
+        try { itemsList = JSON.parse(itemsList); } catch (e) { itemsList = []; }
+      }
+      const needVat = o.needVat === true || String(o.needVat || '').trim().toLowerCase() === 'có' || String(o.needVat || '').trim().toLowerCase() === 'true';
+      const normalized = {
+        ...o,
+        orderCode: String(o.orderCode || '').trim(),
+        orderTime: String(o.orderTime || '').trim(),
+        customerName: String(o.customerName || '').trim(),
+        customerPhone: String(o.customerPhone || '').trim(),
+        customerAddress: String(o.customerAddress || '').trim(),
+        customerType: String(o.customerType || 'Mua lẻ dùng / tặng').trim(),
+        itemsSummary: String(o.itemsSummary || '').trim(),
+        itemsList: Array.isArray(itemsList) ? itemsList : [],
+        bannerNote: String(o.bannerNote || o.greetingCard || '').trim(),
+        deliveryDate: String(o.deliveryDate || o.expectedDeliveryDate || '').trim(),
+        deliveryTime: String(o.deliveryTime || '').trim(),
+        subtotal: parseVndNumber(o.subtotal),
+        discount: parseVndNumber(o.discount),
+        shippingFee: parseVndNumber(o.shippingFee),
+        grandTotal: parseVndNumber(o.grandTotal || o.subtotal),
+        paymentMethod: String(o.paymentMethod || 'COD').trim(),
+        // Ưu tiên statusKey nếu Apps Script V10 trả về sẵn, ngược lại chuẩn hóa từ chuỗi status tiếng Việt
+        status: o.statusKey ? normalizeSheetStatus(o.statusKey) : normalizeSheetStatus(o.status),
+        adminNotes: String(o.adminNotes || o.note || '').trim(),
+        trackingCode: String(o.trackingCode || '').trim(),
+        needVat,
+        vatCompany: String(o.vatCompany || '').trim(),
+        vatTaxCode: String(o.vatTaxCode || '').trim(),
+        vatEmail: String(o.vatEmail || '').trim()
+      };
+      normalized.savedAt = parseOrderSavedAt(normalized);
+      return normalized;
+    }
+
+    async function syncOrdersFromGoogleSheets() {
+      const session = getAdminSession();
+      if (!session || !session.sessionToken) {
+        handleExpiredOrInvalidSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return { ok: false, orders: [] };
+      }
+
+      updateSyncBadge('syncing');
+      try {
+        const data = await postAdminScript({
+          action: 'getOrders',
+          sessionToken: session.sessionToken
+        }, 18000);
+
+        if (data && data.status === 'success' && data.ok === true && Array.isArray(data.orders)) {
+          const normalized = data.orders.map(normalizeOrderRecord);
+          currentOrders = normalized;
+          clearServerErrorBanner();
+          updateSyncBadge('synced', normalized.length);
+          return { ok: true, orders: normalized };
+        }
+
+        if (isSessionInvalidResponse(data)) {
+          handleExpiredOrInvalidSession(
+            (data && data.message) || 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.'
+          );
+          return { ok: false, orders: [] };
+        }
+
+        const errMsg = (data && data.message) ? String(data.message) : 'Máy chủ từ chối yêu cầu tải đơn hàng.';
+        throw new Error(errMsg);
+      } catch (err) {
+        const message = err && err.message ? err.message : 'Lỗi không xác định khi kết nối tới máy chủ.';
+        currentOrders = [];
+        updateSyncBadge('error');
+        showServerErrorBanner(message);
+        return { ok: false, orders: [], error: message };
+      }
+    }
+
+    async function pushOrderStatusToSheets(orderCode, status, adminNotes, deliveryDate) {
+      const session = getAdminSession();
+      if (!session || !session.sessionToken) {
+        handleExpiredOrInvalidSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return false;
+      }
+      try {
+        const payload = {
+          action: 'updateOrderStatus',
+          sessionToken: session.sessionToken,
+          orderCode,
+          status,
+          adminNotes: adminNotes || ''
+        };
+        if (deliveryDate !== undefined) {
+          payload.deliveryDate = deliveryDate;
+        }
+        const data = await postAdminScript(payload, 15000);
+        if (!data || data.status !== 'success' || !data.ok) {
+          if (isSessionInvalidResponse(data)) {
+            handleExpiredOrInvalidSession(
+              (data && data.message) || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+            );
+            return false;
+          }
+          const msg = (data && data.message) ? data.message : 'Máy chủ không xác nhận cập nhật.';
+          throw new Error(msg);
+        }
+        clearServerErrorBanner();
+        return true;
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Lỗi kết nối máy chủ.';
+        showServerErrorBanner(`Không thể lưu thay đổi cho đơn ${orderCode} lên Google Sheets: ${msg}`);
+        alert(`Lỗi lưu lên máy chủ: ${msg}`);
+        return false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 3. RENDER DASHBOARD & FILTERS
+    // ---------------------------------------------------------------------
+    async function initDashboard() {
+      await syncOrdersFromGoogleSheets();
+      applyAdminFilters();
+    }
+
+    async function refreshOrderList(showToastMsg = false) {
+      const res = await syncOrdersFromGoogleSheets();
+      applyAdminFilters();
+      if (showToastMsg && res.ok) {
+        alert(`Đã đồng bộ dữ liệu thực tế (${currentOrders.length} đơn hàng) từ Google Sheets!`);
+      }
+    }
+
+    function filterByStatusQuick(status) {
+      document.getElementById('admin-status-filter').value = status;
+      applyAdminFilters();
+    }
+
+    function clearAdminSearch() {
+      document.getElementById('admin-search-input').value = '';
+      document.getElementById('admin-clear-search-btn').classList.add('hidden');
+      applyAdminFilters();
+    }
+
+    function resetAdminFilters() {
+      document.getElementById('admin-search-input').value = '';
+      document.getElementById('admin-clear-search-btn').classList.add('hidden');
+      document.getElementById('admin-status-filter').value = 'all';
+      document.getElementById('admin-tag-filter').value = 'all';
+      document.getElementById('admin-date-filter').value = 'all';
+      applyAdminFilters();
+    }
+
+    function applyAdminFilters() {
+      const searchRaw = (document.getElementById('admin-search-input')?.value || '').trim().toLowerCase();
+      const statusFilter = document.getElementById('admin-status-filter')?.value || 'all';
+      const tagFilter = document.getElementById('admin-tag-filter')?.value || 'all';
+      const dateFilter = document.getElementById('admin-date-filter')?.value || 'all';
+
+      const clearBtn = document.getElementById('admin-clear-search-btn');
+      if (clearBtn) {
+        if (searchRaw) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+
+      updateKpis(currentOrders);
+
+      const nowDate = new Date();
+      const nowMs = nowDate.getTime();
+      const startOfTodayMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+      const startOf7DaysMs = startOfTodayMs - 6 * 86400000;
+      const startOfMonthMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).getTime();
+
+      const filtered = currentOrders.filter(o => {
+        const deliv = extractDeliveryInfo(o);
+        const greeting = extractGreetingInfo(o);
+
+        if (searchRaw) {
+          const hay = [
+            o.orderCode,
+            o.customerName,
+            o.customerPhone,
+            o.customerAddress,
+            o.itemsSummary,
+            greeting.text,
+            deliv.dateText,
+            deliv.timeText,
+            o.adminNotes,
+            o.vatCompany,
+            o.vatTaxCode
+          ].join(' ').toLowerCase();
+          if (!hay.includes(searchRaw)) return false;
+        }
+
+        if (statusFilter !== 'all') {
+          if (o.status !== statusFilter) return false;
+        }
+
+        if (tagFilter === 'wholesale' && !String(o.customerType).toLowerCase().includes('sỉ') && parseVndNumber(o.subtotal) < 2000000) return false;
+        if (tagFilter === 'vat' && !o.needVat) return false;
+        if (tagFilter === 'banner' && !greeting.hasGreeting) return false;
+        if (tagFilter === 'callback' && !String(o.itemsSummary).includes('GỌI LẠI') && !String(o.orderCode).includes('GL') && !String(o.orderCode).includes('YC')) return false;
+
+        const ts = parseOrderSavedAt(o);
+        if (dateFilter === 'today') {
+          if (!ts || ts < startOfTodayMs || ts > nowMs + 86400000) return false;
+        } else if (dateFilter === '7days') {
+          if (!ts || ts < startOf7DaysMs) return false;
+        } else if (dateFilter === 'this_month') {
+          if (!ts || ts < startOfMonthMs) return false;
+        }
+
+        return true;
+      });
+
+      renderOrdersTable(filtered);
+    }
+
+    function updateKpis(orders) {
+      let revenue = 0;
+      let countSuccess = 0;
+      let countNew = 0;
+      let countDeposit = 0;
+      let countCrafting = 0;
+      let countShipping = 0;
+      let countCompleted = 0;
+
+      orders.forEach(o => {
+        const grand = parseVndNumber(o.grandTotal);
+        if (o.status !== 'cancelled') {
+          revenue += grand;
+        }
+        if (o.status === 'completed') countSuccess++;
+        if (o.status === 'new' || !o.status) countNew++;
+        if (o.status === 'deposit_paid') countDeposit++;
+        if (o.status === 'crafting') countCrafting++;
+        if (o.status === 'shipping') countShipping++;
+        if (o.status === 'completed') countCompleted++;
+      });
+
+      document.getElementById('kpi-revenue').textContent = formatVnd(revenue);
+      document.getElementById('kpi-orders-count').textContent = `${countSuccess} đơn thành công`;
+      document.getElementById('kpi-new').textContent = countNew;
+      document.getElementById('kpi-deposit').textContent = countDeposit;
+      document.getElementById('kpi-crafting').textContent = countCrafting;
+      document.getElementById('kpi-shipping').textContent = countShipping;
+      document.getElementById('kpi-completed').textContent = countCompleted;
+    }
+
+    function getStatusBadge(status) {
+      switch (status) {
+        case 'new':
+          return `<span class="badge-status status-new"><i class="fa-solid fa-clock"></i> Đơn Mới</span>`;
+        case 'deposit_paid':
+          return `<span class="badge-status status-deposit"><i class="fa-solid fa-money-check-dollar"></i> Đã Cọc 30%</span>`;
+        case 'crafting':
+          return `<span class="badge-status status-crafting"><i class="fa-solid fa-wand-magic-sparkles"></i> Đang Cắm Hoa</span>`;
+        case 'shipping':
+          return `<span class="badge-status status-shipping"><i class="fa-solid fa-truck-fast"></i> Đang Giao Xe</span>`;
+        case 'completed':
+          return `<span class="badge-status status-completed"><i class="fa-solid fa-circle-check"></i> Hoàn Thành</span>`;
+        case 'cancelled':
+          return `<span class="badge-status status-cancelled"><i class="fa-solid fa-ban"></i> Đã Hủy</span>`;
+        default:
+          return `<span class="badge-status status-new"><i class="fa-solid fa-clock"></i> Mới Nhận</span>`;
+      }
+    }
+
+    function renderOrdersTable(orders) {
+      const tbody = document.getElementById('orders-table-body');
+      const emptyState = document.getElementById('orders-empty-state');
+      const emptyIcon = document.getElementById('empty-state-icon');
+      const emptyTitle = document.getElementById('empty-state-title');
+      const emptyDesc = document.getElementById('empty-state-desc');
+      const countLabel = document.getElementById('admin-result-count');
+
+      countLabel.textContent = lastServerError
+        ? 'Không tải được dữ liệu từ máy chủ'
+        : `Đang hiển thị ${orders.length} đơn hàng`;
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '';
+        if (lastServerError) {
+          emptyIcon.className = 'w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl mx-auto';
+          emptyIcon.innerHTML = '<i class="fa-solid fa-server"></i>';
+          emptyTitle.textContent = 'Không thể tải danh sách đơn hàng từ máy chủ';
+          emptyDesc.textContent = lastServerError;
+        } else {
+          emptyIcon.className = 'w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mx-auto';
+          emptyIcon.innerHTML = '<i class="fa-solid fa-inbox"></i>';
+          emptyTitle.textContent = 'Chưa có đơn hàng nào khớp với điều kiện lọc';
+          emptyDesc.textContent = 'Bạn có thể bấm "Tạo Đơn Tại Quầy" để thêm đơn trực tiếp hoặc bấm "Đồng Bộ" để kiểm tra đơn mới từ Google Sheets.';
+        }
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = orders.map((o, idx) => {
+        const cleanPhone = String(o.customerPhone || '').replace(/\D/g, '');
+        const deliv = extractDeliveryInfo(o);
+        const greeting = extractGreetingInfo(o);
+        const isWholesale = String(o.customerType).toLowerCase().includes('sỉ') || parseVndNumber(o.subtotal) >= 2000000;
+        const rawCode = o.orderCode || `#DH-${idx}`;
+        const safeCodeAttr = escapeHtml(rawCode);
+        const hasWarning = String(o.adminNotes || '').includes('⚠');
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors ${hasWarning ? 'bg-amber-50/40' : ''}">
+            <td class="py-3.5 px-4 align-top">
+              <span class="font-mono font-bold text-navy-dark text-sm block">${safeCodeAttr}</span>
+              <span class="text-[11px] text-slate-400 block mt-0.5">Đặt: ${escapeHtml(o.orderTime || '')}</span>
+              ${isWholesale ? '<span class="inline-block mt-1 bg-champagne-600/20 text-champagne-700 text-[10px] font-bold px-2 py-0.5 rounded border border-champagne-600/40">ĐẠI LÝ SỈ</span>' : ''}
+              ${o.needVat ? '<span class="inline-block mt-1 bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-300">CẦN VAT</span>' : ''}
+              ${hasWarning ? '<span class="inline-block mt-1 bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded border border-red-300">⚠ LỆCH GIÁ</span>' : ''}
+            </td>
+
+            <td class="py-3.5 px-4 align-top max-w-[270px]">
+              <strong class="font-bold text-navy-dark block text-xs sm:text-sm">${escapeHtml(o.customerName || 'Khách vãng lai')}</strong>
+              <div class="flex items-center gap-2 mt-1">
+                <a href="tel:${cleanPhone}" class="text-champagne-700 font-bold hover:underline flex items-center gap-1" title="Bấm gọi khách ngay">
+                  <i class="fa-solid fa-phone text-[10px]"></i> ${escapeHtml(o.customerPhone || '')}
+                </a>
+                ${cleanPhone ? `
+                  <a href="https://zalo.me/${cleanPhone}" target="_blank" rel="noopener" class="text-sky-600 font-bold hover:underline text-[11px] flex items-center gap-1" title="Nhắn Zalo cho khách">
+                    <i class="fa-solid fa-comment-dots"></i> Zalo
+                  </a>
+                ` : ''}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-1 line-clamp-2" title="${escapeHtml(o.customerAddress || '')}">
+                <i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${escapeHtml(o.customerAddress || 'Chưa có địa chỉ')}
+              </p>
+
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold ${deliv.hasDate ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}">
+                  <i class="fa-regular fa-calendar"></i> Ngày giao: ${escapeHtml(deliv.dateText)}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold ${deliv.hasTime ? 'bg-sky-50 text-sky-800 border border-sky-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}">
+                  <i class="fa-regular fa-clock"></i> Giờ giao: ${escapeHtml(deliv.timeText)}
+                </span>
+              </div>
+            </td>
+
+            <td class="py-3.5 px-4 align-top max-w-[300px]">
+              <p class="font-medium text-slate-800 line-clamp-2" title="${escapeHtml(o.itemsSummary || '')}">
+                ${escapeHtml(o.itemsSummary || 'Đơn tư vấn')}
+              </p>
+
+              <div class="mt-1.5 p-2 rounded-lg text-[11px] flex items-start gap-1.5 ${greeting.hasGreeting ? 'bg-amber-50 border border-amber-200 text-amber-950' : 'bg-slate-50 border border-slate-200/80 text-slate-400'}">
+                <i class="fa-solid fa-ribbon ${greeting.hasGreeting ? 'text-amber-600' : 'text-slate-400'} mt-0.5 shrink-0"></i>
+                <div class="leading-snug">
+                  <span class="font-bold">Lời chúc:</span>
+                  <span class="${greeting.hasGreeting ? 'italic font-medium' : ''}">${escapeHtml(greeting.text)}</span>
+                </div>
+              </div>
+
+              ${o.adminNotes && o.adminNotes !== 'Không' ? `
+                <div class="mt-1.5 text-[11px] text-indigo-700 bg-indigo-50/60 px-2 py-1 rounded border border-indigo-100 line-clamp-2" title="${escapeHtml(o.adminNotes)}">
+                  <i class="fa-solid fa-clipboard text-[10px] mr-1"></i>${escapeHtml(o.adminNotes)}
+                </div>
+              ` : ''}
+            </td>
+
+            <td class="py-3.5 px-4 align-top text-right whitespace-nowrap">
+              <span class="font-bold text-red-600 text-sm block">${formatVnd(o.grandTotal || o.subtotal || 0)}</span>
+              <span class="text-[11px] text-slate-500 block mt-0.5">${escapeHtml(o.paymentMethod || 'COD')}</span>
+              ${String(o.paymentMethod || '').toLowerCase().includes('cọc') ? `
+                <span class="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded font-bold inline-block mt-1">
+                  Cọc 30%: ${formatVnd(Math.round(parseVndNumber(o.grandTotal) * 0.3))}
+                </span>
+              ` : ''}
+            </td>
+
+            <td class="py-3.5 px-4 align-top text-center">
+              <div class="space-y-1.5">
+                ${getStatusBadge(o.status)}
+                <select data-action="status-select" data-order-code="${safeCodeAttr}"
+                  class="block mx-auto text-[11px] font-semibold bg-white border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-navy-dark">
+                  <option value="new" ${o.status === 'new' ? 'selected' : ''}>Chờ duyệt</option>
+                  <option value="deposit_paid" ${o.status === 'deposit_paid' ? 'selected' : ''}>Đã nhận cọc</option>
+                  <option value="crafting" ${o.status === 'crafting' ? 'selected' : ''}>Đang cắm hoa</option>
+                  <option value="shipping" ${o.status === 'shipping' ? 'selected' : ''}>Đang giao xe</option>
+                  <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>Hoàn thành</option>
+                  <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Hủy đơn</option>
+                </select>
+              </div>
+            </td>
+
+            <td class="py-3.5 px-4 align-top text-center whitespace-nowrap">
+              <div class="flex items-center justify-center gap-1">
+                <button type="button" data-action="view-detail" data-order-code="${safeCodeAttr}"
+                  class="p-2 text-slate-600 hover:text-navy-dark hover:bg-slate-100 rounded-lg text-xs" title="Xem chi tiết đơn">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+                <button type="button" data-action="print-label" data-order-code="${safeCodeAttr}"
+                  class="p-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg text-xs" title="In phiếu dán thùng carton">
+                  <i class="fa-solid fa-print"></i>
+                </button>
+                <button type="button" data-action="cancel-order" data-order-code="${safeCodeAttr}"
+                  class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs" title="Hủy đơn &amp; tính tiền hoàn cọc">
+                  <i class="fa-solid fa-ban"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setupOrdersTableDelegation() {
+      const tbody = document.getElementById('orders-table-body');
+      if (!tbody) return;
+
+      tbody.addEventListener('click', (event) => {
+        const actionBtn = event.target.closest('button[data-action][data-order-code]');
+        if (!actionBtn) return;
+        const action = actionBtn.dataset.action;
+        const orderCode = actionBtn.dataset.orderCode;
+        if (!orderCode) return;
+
+        if (action === 'view-detail') {
+          openOrderDetailModal(orderCode);
+        } else if (action === 'print-label') {
+          printOrderLabelDirect(orderCode);
+        } else if (action === 'cancel-order') {
+          openCancelModalDirect(orderCode);
+        }
+      });
+
+      tbody.addEventListener('change', (event) => {
+        const selectEl = event.target.closest('select[data-action="status-select"][data-order-code]');
+        if (!selectEl) return;
+        const orderCode = selectEl.dataset.orderCode;
+        if (!orderCode) return;
+        updateOrderStatusQuick(orderCode, selectEl.value);
+      });
+    }
+
+    async function updateOrderStatusQuick(orderCode, newStatus) {
+      const idx = currentOrders.findIndex(o => o.orderCode === orderCode);
+      if (idx === -1) return;
+      const prevStatus = currentOrders[idx].status;
+      currentOrders[idx].status = newStatus;
+      applyAdminFilters();
+
+      const ok = await pushOrderStatusToSheets(orderCode, newStatus, currentOrders[idx].adminNotes || '');
+      if (!ok) {
+        currentOrders[idx].status = prevStatus;
+        applyAdminFilters();
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 4. MODAL CHI TIẾT ĐƠN HÀNG
+    // ---------------------------------------------------------------------
+    function openOrderDetailModal(orderCode) {
+      const order = currentOrders.find(o => o.orderCode === orderCode);
+      if (!order) return;
+      selectedOrderForAction = order;
+
+      const deliv = extractDeliveryInfo(order);
+      const greeting = extractGreetingInfo(order);
+
+      document.getElementById('detail-code-badge').textContent = order.orderCode;
+
+      const itemsHtml = Array.isArray(order.itemsList) && order.itemsList.length > 0
+        ? order.itemsList.map(it => `
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-none">
+              <div>
+                <p class="font-bold text-navy-dark text-xs">${escapeHtml(it.name || it.sku)}</p>
+                <p class="text-[11px] text-slate-400">${it.qty || 1} &times; ${formatVnd(it.unitPrice || 0)}</p>
+              </div>
+              <strong class="font-bold text-slate-800 text-xs">${formatVnd(it.lineTotal || (it.qty * it.unitPrice) || 0)}</strong>
+            </div>
+          `).join('')
+        : `<p class="py-2 text-slate-700 italic">${escapeHtml(order.itemsSummary || 'Đơn tư vấn trực tiếp')}</p>`;
+
+      document.getElementById('detail-modal-body').innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <div class="space-y-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Thông Tin Khách Hàng</span>
+            <p class="font-bold text-navy-dark text-sm">${escapeHtml(order.customerName)}</p>
+            <p class="text-xs text-slate-600"><i class="fa-solid fa-phone text-champagne-700 mr-1"></i>${escapeHtml(order.customerPhone)}</p>
+            <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-champagne-700 mr-1"></i>${escapeHtml(order.customerAddress)}</p>
+            <p class="text-[11px] text-indigo-700 font-semibold mt-1">Phân loại: ${escapeHtml(order.customerType || 'Khách lẻ')}</p>
+          </div>
+          <div class="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Trạng Thái &amp; Lịch Giao Hàng</span>
+            <div>${getStatusBadge(order.status)}</div>
+            <p class="text-xs text-slate-600 pt-1">PTTT: <strong>${escapeHtml(order.paymentMethod || 'COD')}</strong></p>
+            <p class="text-xs text-slate-600">Thời gian đặt: <strong>${escapeHtml(order.orderTime || '')}</strong></p>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-bold text-[11px]">
+                <i class="fa-regular fa-calendar"></i> Ngày giao: ${escapeHtml(deliv.dateText)}
+              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-100 text-sky-900 font-bold text-[11px]">
+                <i class="fa-regular fa-clock"></i> Giờ giao: ${escapeHtml(deliv.timeText)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-2xl space-y-1 ${greeting.hasGreeting ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300' : 'bg-slate-50 border border-slate-200'}">
+          <span class="text-[10px] font-bold uppercase tracking-wider ${greeting.hasGreeting ? 'text-amber-800' : 'text-slate-500'} flex items-center gap-1.5">
+            <i class="fa-solid fa-ribbon ${greeting.hasGreeting ? 'text-amber-600' : 'text-slate-400'}"></i> Lời Chúc / Biển Chúc Mừng Cắm Kèm Chậu Hoa:
+          </span>
+          <p class="${greeting.hasGreeting ? 'font-serif italic font-bold text-navy-dark text-sm sm:text-base leading-snug' : 'text-xs text-slate-400 italic'}">
+            ${greeting.hasGreeting ? `“${escapeHtml(greeting.text)}”` : 'Không có lời chúc'}
+          </p>
+        </div>
+
+        <div class="border border-slate-200 rounded-2xl p-4 space-y-2">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Danh Sách Sản Phẩm</span>
+          <div class="divide-y divide-slate-100">
+            ${itemsHtml}
+          </div>
+          <div class="pt-2 border-t border-slate-200 space-y-1 text-right">
+            <div class="flex justify-between text-slate-500">
+              <span>Tiền hàng:</span>
+              <span>${formatVnd(order.subtotal || 0)}</span>
+            </div>
+            ${parseVndNumber(order.discount) > 0 ? `
+              <div class="flex justify-between text-emerald-700">
+                <span>Chiết khấu sỉ:</span>
+                <span>-${formatVnd(order.discount)}</span>
+              </div>
+            ` : ''}
+            <div class="flex justify-between text-slate-500">
+              <span>Cước vận chuyển:</span>
+              <span>${formatVnd(order.shippingFee || 0)}</span>
+            </div>
+            <div class="flex justify-between text-sm font-bold text-red-600 pt-1 border-t border-slate-100">
+              <span>Tổng thanh toán:</span>
+              <span>${formatVnd(order.grandTotal || order.subtotal || 0)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${order.needVat ? `
+          <div class="p-3.5 bg-orange-50 border border-orange-200 rounded-2xl space-y-1 text-xs">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-orange-900 block flex items-center gap-1.5">
+              <i class="fa-solid fa-file-invoice-dollar text-orange-600"></i> Thông Tin Xuất Hóa Đơn VAT:
+            </span>
+            <p class="font-bold text-navy-dark">${escapeHtml(order.vatCompany || '')}</p>
+            <p class="text-slate-600">Mã số thuế: <strong>${escapeHtml(order.vatTaxCode || '')}</strong></p>
+            <p class="text-slate-600">Email nhận hóa đơn: <strong>${escapeHtml(order.vatEmail || '')}</strong></p>
+          </div>
+        ` : ''}
+
+        <div class="space-y-1.5">
+          <label class="block font-bold text-navy-dark uppercase text-[11px]">Ghi chú điều vận &amp; Thợ cắm (Nội bộ shop):</label>
+          <div class="flex gap-2">
+            <input type="text" id="detail-admin-note-input" value="${escapeHtml(order.adminNotes || '')}"
+              placeholder="Ví dụ: Xe Thái Bình - Hải Phòng xuất bến 14h, phụ xe anh Tuấn..."
+              class="flex-1 px-3 py-2 rounded-xl border border-slate-300 focus:border-navy-dark focus:outline-none text-xs">
+            <button type="button" id="detail-save-note-btn"
+              class="bg-navy-dark hover:bg-champagne-600 hover:text-navy-dark text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors shrink-0">
+              Lưu Ghi Chú
+            </button>
+          </div>
+        </div>
+      `;
+
+      const saveNoteBtn = document.getElementById('detail-save-note-btn');
+      if (saveNoteBtn) {
+        saveNoteBtn.addEventListener('click', () => saveAdminNoteFromDetail(order.orderCode));
+      }
+
+      const modal = document.getElementById('order-detail-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeOrderDetailModal() {
+      const modal = document.getElementById('order-detail-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function saveAdminNoteFromDetail(orderCode) {
+      const val = document.getElementById('detail-admin-note-input')?.value || '';
+      const idx = currentOrders.findIndex(o => o.orderCode === orderCode);
+      if (idx === -1) return;
+      const ok = await pushOrderStatusToSheets(orderCode, currentOrders[idx].status, val);
+      if (ok) {
+        currentOrders[idx].adminNotes = val;
+        alert('Đã cập nhật ghi chú nội bộ lên Google Sheets!');
+        applyAdminFilters();
+      }
+    }
+
+    function openZaloForCurrentOrder() {
+      if (!selectedOrderForAction) return;
+      const cleanPhone = String(selectedOrderForAction.customerPhone || '').replace(/\D/g, '');
+      if (!cleanPhone) {
+        alert('Đơn này chưa có số điện thoại!');
+        return;
+      }
+      const msg = `Chào ${selectedOrderForAction.customerName || 'bạn'}, shop Aurelia Floral (Trần Tài) xin gửi ảnh chậu hoa cắm thành phẩm theo đơn ${selectedOrderForAction.orderCode} để bạn xem trước khi shop đóng thùng giao xe nhé!`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(msg).catch(() => {});
+      }
+      window.open(`https://zalo.me/${cleanPhone}`, '_blank');
+    }
+
+    // ---------------------------------------------------------------------
+    // 5. IN PHIẾU GỬI HÀNG / NHÃN THÙNG CARTON
+    // ---------------------------------------------------------------------
+    function printOrderLabelCurrent() {
+      if (selectedOrderForAction) {
+        printOrderLabelDirect(selectedOrderForAction.orderCode);
+      }
+    }
+
+    function printOrderLabelDirect(orderCode) {
+      const order = currentOrders.find(o => o.orderCode === orderCode);
+      if (!order) return;
+
+      const printArea = document.getElementById('print-area');
+      const grandTotal = parseVndNumber(order.grandTotal || order.subtotal);
+      const isCod = String(order.paymentMethod).includes('COD');
+      const codAmount = isCod ? grandTotal : 0;
+      const deliv = extractDeliveryInfo(order);
+      const greeting = extractGreetingInfo(order);
+
+      printArea.innerHTML = `
+        <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; border: 3px solid #000; padding: 20px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: bold; letter-spacing: 1px;">AURELIA FLORAL — TRẦN TÀI</h2>
+              <p style="margin: 3px 0 0 0; font-size: 13px; color: #333;">Cổng 3 &amp; Cổng 1 Chợ Bo, TP. Thái Bình • Hotline/Zalo: <strong>0842.722.928</strong></p>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                ${escapeHtml(order.orderCode)}
+              </span>
+              <p style="margin: 4px 0 0 0; font-size: 11px;">Ngày đặt: ${escapeHtml(order.orderTime || '')}</p>
+            </div>
+          </div>
+
+          <div style="border: 2px dashed #000; padding: 14px; border-radius: 6px; background: #fafafa; margin-bottom: 16px;">
+            <p style="margin: 0 0 6px 0; font-size: 12px; text-transform: uppercase; font-weight: bold; color: #555;">NGƯỜI NHẬN HÀNG:</p>
+            <h1 style="margin: 0 0 6px 0; font-size: 24px; font-weight: bold;">${escapeHtml(order.customerName)}</h1>
+            <p style="margin: 0 0 6px 0; font-size: 20px; font-weight: bold; color: #000;">
+              SĐT: ${escapeHtml(order.customerPhone)}
+            </p>
+            <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+              ĐỊA CHỈ: ${escapeHtml(order.customerAddress)}
+            </p>
+            <p style="margin: 0; font-size: 14px; font-weight: bold; color: #065f46;">
+              LỊCH GIAO DỰ KIẾN: ${escapeHtml(deliv.dateText)} — Giờ giao: ${escapeHtml(deliv.timeText)}
+            </p>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: bold;">SẢN PHẨM TRONG THÙNG:</p>
+            <p style="margin: 0; font-size: 15px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+              ${escapeHtml(order.itemsSummary || 'Hoa lụa nghệ thuật')}
+            </p>
+          </div>
+
+          ${greeting.hasGreeting ? `
+            <div style="border: 2px solid #b45309; background: #fef3c7; padding: 10px; border-radius: 6px; margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color: #92400e;">LỜI CHÚC / BIỂN CHÚC MỪNG ĐÍNH KÈM CHẬU:</p>
+              <p style="margin: 0; font-size: 15px; font-weight: bold; color: #000;">“${escapeHtml(greeting.text)}”</p>
+            </div>
+          ` : ''}
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border: 2px solid #000; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+            <div>
+              <p style="margin: 0; font-size: 13px;">HÌNH THỨC THANH TOÁN:</p>
+              <strong style="font-size: 15px;">${escapeHtml(order.paymentMethod || 'COD')}</strong>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-size: 13px;">TIỀN THU NGƯỜI NHẬN (COD):</p>
+              <strong style="font-size: 22px; color: ${codAmount > 0 ? '#b91c1c' : '#15803d'};">
+                ${codAmount > 0 ? formatVnd(codAmount) : 'ĐÃ THANH TOÁN ĐỦ (0 Đ)'}
+              </strong>
+            </div>
+          </div>
+
+          <div style="text-align: center; border: 3px solid #dc2626; padding: 12px; border-radius: 6px; background: #fff;">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 900; color: #dc2626; letter-spacing: 1px;">
+              ⚠️ HÀNG HOA NGHỆ THUẬT DỄ VỠ - XIN NHẸ TAY &amp; ĐỂ THẲNG ĐỨNG!
+            </h2>
+            <p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">
+              Quý khách vui lòng quay video lúc mở thùng hàng. Nứt vỡ do vận chuyển được shop đổi mới miễn phí 100%.
+            </p>
+          </div>
+        </div>
+      `;
+
+      printArea.classList.remove('hidden');
+      window.print();
+      printArea.classList.add('hidden');
+    }
+
+    // ---------------------------------------------------------------------
+    // 6. HỦY ĐƠN & TÍNH HOÀN CỌC
+    // ---------------------------------------------------------------------
+    function openCancelModalFromDetail() {
+      if (selectedOrderForAction) {
+        closeOrderDetailModal();
+        openCancelModalDirect(selectedOrderForAction.orderCode);
+      }
+    }
+
+    function openCancelModalDirect(orderCode) {
+      const order = currentOrders.find(o => o.orderCode === orderCode);
+      if (!order) return;
+      selectedOrderForAction = order;
+
+      document.getElementById('cancel-modal-code').textContent = order.orderCode;
+      const total = parseVndNumber(order.grandTotal || order.subtotal);
+      document.getElementById('cancel-calc-total').textContent = formatVnd(total);
+
+      const deposit = Math.round(total * 0.3);
+      document.getElementById('cancel-calc-deposit').textContent = formatVnd(deposit);
+
+      const refundStatusSelect = document.getElementById('cancel-refund-status-select');
+      if (refundStatusSelect) {
+        const isCodOrder = String(order.paymentMethod || '').toUpperCase().includes('COD');
+        refundStatusSelect.value = isCodOrder ? 'Không phát sinh hoàn cọc (Đơn COD)' : 'Chờ kế toán hoàn tiền';
+      }
+
+      calculateRefundAmount();
+
+      const modal = document.getElementById('cancel-order-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeCancelModal() {
+      const modal = document.getElementById('cancel-order-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function calculateRefundAmount() {
+      if (!selectedOrderForAction) return;
+      const stage = document.getElementById('cancel-stage-select').value;
+      const total = parseVndNumber(selectedOrderForAction.grandTotal || selectedOrderForAction.subtotal);
+      const deposit = Math.round(total * 0.3);
+
+      let refund = 0;
+      let note = '';
+
+      if (stage === 'before_packing') {
+        refund = deposit;
+        note = 'Dự kiến hoàn 100% tiền cọc trong vòng 24 giờ do shop chưa đóng gói.';
+      } else if (stage === 'custom_crafted') {
+        refund = Math.round(deposit * 0.7);
+        note = 'Dự kiến giữ lại 30% tiền cọc chi phí nguyên liệu đã phối, hoàn lại 70% cọc.';
+      } else if (stage === 'shipping_sent') {
+        const shipping2Ways = 60000;
+        refund = Math.max(0, deposit - shipping2Ways);
+        note = 'Khách chịu cước 2 chiều (~60.000đ). Hoàn sau khi shop nhận lại hàng nguyên vẹn.';
+      } else if (stage === 'shop_cancelled') {
+        refund = deposit;
+        note = 'Shop chủ động hủy (hết hàng/trễ hẹn) → Dự kiến hoàn 100% cọc kèm lời xin lỗi.';
+      }
+
+      document.getElementById('cancel-calc-refund').textContent = formatVnd(refund);
+      document.getElementById('cancel-calc-note').textContent = note;
+    }
+
+    async function confirmCancelOrderAction() {
+      if (!selectedOrderForAction) return;
+      const reason = document.getElementById('cancel-reason-input').value.trim() || 'Khách yêu cầu hủy';
+      const stageText = document.getElementById('cancel-stage-select').selectedOptions[0].text;
+      const refundText = document.getElementById('cancel-calc-refund').textContent;
+      const refundStatus = document.getElementById('cancel-refund-status-select')?.value || 'Chờ kế toán hoàn tiền';
+
+      const idx = currentOrders.findIndex(o => o.orderCode === selectedOrderForAction.orderCode);
+      if (idx === -1) return;
+
+      const submitBtn = document.getElementById('cancel-confirm-submit-btn');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang cập nhật...';
+      }
+
+      try {
+        const cancelNote = `[ĐÃ HỦY - ${refundStatus}] ${stageText} | Hoàn dự kiến: ${refundText} | Lý do: ${reason}`;
+        const ok = await pushOrderStatusToSheets(selectedOrderForAction.orderCode, 'cancelled', cancelNote);
+        if (ok) {
+          currentOrders[idx].status = 'cancelled';
+          currentOrders[idx].adminNotes = cancelNote;
+          alert(
+            `Đã chuyển đơn ${selectedOrderForAction.orderCode} sang trạng thái ĐÃ HỦY!\n` +
+            `• Hoàn tiền dự kiến: ${refundText}\n` +
+            `• Trạng thái hoàn cọc: ${refundStatus}\n` +
+            `(Lưu ý: Hệ thống chỉ ghi nhận sổ sách, chưa tự động chuyển khoản ngân hàng.)`
+          );
+          closeCancelModal();
+          applyAdminFilters();
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 7. TẠO ĐƠN HÀNG THỦ CÔNG TẠI QUẦY
+    // ---------------------------------------------------------------------
+    function generateUniqueManualOrderCode() {
+      const existingCodes = new Set(currentOrders.map(o => String(o.orderCode || '').trim().toUpperCase()));
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      for (let attempt = 0; attempt < 25; attempt++) {
+        let suffix = '';
+        for (let i = 0; i < 6; i++) {
+          suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const candidate = `#DH-${suffix}`;
+        if (!existingCodes.has(candidate)) {
+          return candidate;
+        }
+      }
+      return `#DH-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    }
+
+    function getShippingRouteLabel(routeCode) {
+      const map = {
+        local: 'Nội tỉnh Thái Bình',
+        bus: 'Gửi xe tuyến tỉnh',
+        north: 'Bưu cục Miền Bắc',
+        far: 'Bưu cục Miền Trung & Nam',
+        pickup: 'Khách lấy tại quầy'
+      };
+      return map[routeCode] || routeCode;
+    }
+
+    function handleManualShippingTypeChange() {
+      const route = document.getElementById('manual-shipping-type')?.value || 'local';
+      const feeInput = document.getElementById('manual-shipping-fee');
+      if (!feeInput) return;
+      const defaultFees = {
+        local: 20000,
+        bus: 30000,
+        north: 30000,
+        far: 35000,
+        pickup: 0
+      };
+      if (Object.prototype.hasOwnProperty.call(defaultFees, route)) {
+        feeInput.value = defaultFees[route];
+      }
+    }
+
+    function openNewOrderModal() {
+      document.getElementById('new-order-modal').classList.remove('hidden');
+      document.getElementById('new-order-modal').classList.add('flex');
+    }
+
+    function closeNewOrderModal() {
+      document.getElementById('new-order-modal').classList.add('hidden');
+      document.getElementById('new-order-modal').classList.remove('flex');
+    }
+
+    async function handleCreateManualOrder(event) {
+      event.preventDefault();
+      const session = getAdminSession();
+      if (!session || !session.sessionToken) {
+        closeNewOrderModal();
+        handleExpiredOrInvalidSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại trước khi tạo đơn.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('manual-order-submit-btn');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu lên máy chủ...';
+      }
+
+      const code = generateUniqueManualOrderCode();
+      const name = document.getElementById('manual-cust-name').value.trim();
+      const phone = document.getElementById('manual-cust-phone').value.trim();
+      const address = document.getElementById('manual-cust-address').value.trim();
+      const deliveryDateRaw = document.getElementById('manual-delivery-date').value.trim();
+      const deliveryTimeRaw = document.getElementById('manual-delivery-time').value.trim();
+      const custType = document.getElementById('manual-cust-type').value;
+      const payMethod = document.getElementById('manual-payment-method').value;
+      const shippingType = document.getElementById('manual-shipping-type')?.value || 'local';
+      const shippingRouteLabel = getShippingRouteLabel(shippingType);
+      const itemsSummary = document.getElementById('manual-items-summary').value.trim();
+      const subtotal = Number(document.getElementById('manual-subtotal').value || 0);
+      const discount = Number(document.getElementById('manual-discount').value || 0);
+      const shippingFee = Number(document.getElementById('manual-shipping-fee').value || 0);
+      const grandTotal = Math.max(0, subtotal - discount + shippingFee);
+      const bannerNote = document.getElementById('manual-banner-note').value.trim();
+      const rawNote = document.getElementById('manual-internal-note').value.trim();
+
+      const combinedDeliveryDate = (deliveryDateRaw && deliveryTimeRaw)
+        ? `${deliveryDateRaw} (${deliveryTimeRaw})`
+        : deliveryDateRaw;
+
+      const composedNote = rawNote
+        ? `[Tuyến: ${shippingRouteLabel}] ${rawNote}`
+        : `[Tuyến: ${shippingRouteLabel}] Đơn tạo trực tiếp tại quầy`;
+
+      const payload = {
+        action: 'createManualOrder',
+        sessionToken: session.sessionToken,
+        orderCode: code,
+        idempotencyKey: `${code}_${Date.now()}`,
+        customerName: name,
+        customerPhone: phone,
+        customerAddress: address,
+        customerType: custType,
+        shippingType: shippingType,
+        shippingRoute: shippingRouteLabel,
+        itemsSummary: itemsSummary,
+        items: [{ sku: 'MANUAL', name: itemsSummary, qty: 1, unitPrice: subtotal, lineTotal: subtotal }],
+        bannerNote: bannerNote || 'Không',
+        deliveryDate: deliveryDateRaw,
+        deliveryTime: deliveryTimeRaw,
+        subtotal: subtotal,
+        discount: discount,
+        shippingFee: shippingFee,
+        grandTotal: grandTotal,
+        paymentMethod: payMethod,
+        status: payMethod.includes('cọc') ? 'deposit_paid' : (payMethod.includes('100%') ? 'crafting' : 'new'),
+        note: composedNote,
+        orderSource: 'Tạo tại quầy (Admin)'
+      };
+
+      try {
+        const res = await postAdminScript(payload, 18000);
+        if (!res || res.status !== 'success' || !res.savedToSheet) {
+          if (isSessionInvalidResponse(res)) {
+            closeNewOrderModal();
+            handleExpiredOrInvalidSession(
+              (res && res.message) || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+            );
+            return;
+          }
+          throw new Error((res && res.message) ? res.message : 'Máy chủ không xác nhận đã lưu đơn hàng.');
+        }
+
+        const createdRecord = normalizeOrderRecord({
+          ...payload,
+          orderCode: res.orderCode || code,
+          orderTime: new Date().toLocaleString('vi-VN'),
+          deliveryDate: combinedDeliveryDate || deliveryDateRaw,
+          adminNotes: payload.note
+        });
+        currentOrders.unshift(createdRecord);
+        clearServerErrorBanner();
+        updateSyncBadge('synced', currentOrders.length);
+        alert(`Đã tạo và lưu thành công đơn hàng ${createdRecord.orderCode} lên Google Sheets!`);
+        document.getElementById('new-order-form').reset();
+        closeNewOrderModal();
+        applyAdminFilters();
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Lỗi kết nối máy chủ.';
+        alert(`Không thể lưu đơn hàng lên Google Sheets: ${msg}`);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 8. XUẤT FILE EXCEL / CSV (UTF-8 BOM HỖ TRỢ TIẾNG VIỆT)
+    // ---------------------------------------------------------------------
+    function exportOrdersToExcel() {
+      if (currentOrders.length === 0) {
+        alert('Chưa có đơn hàng nào để xuất file!');
+        return;
+      }
+
+      const headers = [
+        'Mã Đơn',
+        'Thời Gian Đặt',
+        'Ngày Giao',
+        'Giờ Giao',
+        'Tên Khách Hàng',
+        'Số Điện Thoại',
+        'Địa Chỉ Giao',
+        'Loại Khách',
+        'Sản Phẩm',
+        'Lời Chúc / Biển Chúc Mừng',
+        'Tiền Hàng (VNĐ)',
+        'Chiết Khấu',
+        'Phí Vận Chuyển',
+        'Tổng Tiền (VNĐ)',
+        'Hình Thức Thanh Toán',
+        'Trạng Thái',
+        'Cần Xuất VAT',
+        'Tên Công Ty VAT',
+        'MST',
+        'Email VAT',
+        'Ghi Chú Nội Bộ'
+      ];
+
+      const rows = currentOrders.map(o => {
+        const deliv = extractDeliveryInfo(o);
+        const greeting = extractGreetingInfo(o);
+        return [
+          `"${(o.orderCode || '').replace(/"/g, '""')}"`,
+          `"${(o.orderTime || '').replace(/"/g, '""')}"`,
+          `"${deliv.hasDate ? deliv.dateText : ''}"`,
+          `"${deliv.hasTime ? deliv.timeText : ''}"`,
+          `"${(o.customerName || '').replace(/"/g, '""')}"`,
+          `"${(o.customerPhone || '').replace(/"/g, '""')}"`,
+          `"${(o.customerAddress || '').replace(/"/g, '""')}"`,
+          `"${(o.customerType || '').replace(/"/g, '""')}"`,
+          `"${(o.itemsSummary || '').replace(/"/g, '""')}"`,
+          `"${greeting.hasGreeting ? greeting.text.replace(/"/g, '""') : ''}"`,
+          parseVndNumber(o.subtotal),
+          parseVndNumber(o.discount),
+          parseVndNumber(o.shippingFee),
+          parseVndNumber(o.grandTotal),
+          `"${(o.paymentMethod || '').replace(/"/g, '""')}"`,
+          `"${(o.status || '').replace(/"/g, '""')}"`,
+          o.needVat ? 'Có' : 'Không',
+          `"${(o.vatCompany || '').replace(/"/g, '""')}"`,
+          `"${(o.vatTaxCode || '').replace(/"/g, '""')}"`,
+          `"${(o.vatEmail || '').replace(/"/g, '""')}"`,
+          `"${(o.adminNotes || '').replace(/"/g, '""')}"`
+        ];
+      });
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Aurelia_Floral_DonHang_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Init on page ready
+    window.addEventListener('DOMContentLoaded', () => {
+      setupOrdersTableDelegation();
+      checkAuthStatus();
+    });
+  </script>
+</body>
+
+</html>
